@@ -1,0 +1,177 @@
+// Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.text.capitalize
+import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.nio.charset.Charset
+import javax.imageio.ImageIO
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+@Preview
+fun App() {
+
+    var writing by remember { mutableStateOf(false) }
+
+    if(writing) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Writing To File") },
+            text = { CircularProgressIndicator() },
+            buttons = {}
+        )
+    }
+
+    val pokemons = remember {
+        Pokemon::class.java.getResourceAsStream("pokemons.json")?.readAllBytes()
+            ?.toString(Charset.defaultCharset())
+            .fromJson<Array<Pokemon>>().orEmpty()
+    }
+
+    var location by remember { mutableStateOf(0) }
+
+    val pokemon = pokemons.getOrNull(location)
+
+    val alex = remember { Character("Alex") }
+    val amun = remember { Character("Amun") }
+    val andy = remember { Character("Andy") }
+    val era = remember { Character("Era") }
+    val ginko = remember { Character("Ginko") }
+
+    Card(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Button(
+                onClick = {
+                    writing = true
+                    val f = """
+,${alex.name},${amun.name},${andy.name},${era.name},${ginko.name}
+${pokemons.joinToString("\n") { "${it.name},${alex.getChoice(it.id)},${amun.getChoice(it.id)},${andy.getChoice(it.id)},${era.getChoice(it.id)},${ginko.getChoice(it.id)}" }}
+                    """.trimIndent()
+                    val userHomeFolder = System.getProperty("user.home")
+                    val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
+                    if(!file.exists()) file.createNewFile()
+                    file.writeText(f)
+                    writing = false
+                }
+            ) { Text("Export Data to CSV") }
+            pokemon?.let { PokemonContent(it) }
+            pokemon?.let { Characters(it, alex, amun, andy, era, ginko) }
+
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Button(onClick = { location-- }) { Text("Previous") }
+                Button(onClick = { location++ }) { Text("Next") }
+            }
+        }
+    }
+}
+
+@Composable
+fun Characters(pokemon: Pokemon, vararg characters: Character) {
+    characters.forEach { Character(it, pokemon) }
+}
+
+@Composable
+fun Character(character: Character, pokemon: Pokemon) {
+    Row(
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(character.name)
+
+        val choice = character.choices.getOrDefault(pokemon.id, Choice.Undecided)
+
+        Row {
+            OutlinedButton(
+                onClick = { character.choices[pokemon.id] = Choice.Smash },
+                colors = ButtonDefaults.outlinedButtonColors(
+                    backgroundColor = animateColorAsState(if (choice == Choice.Smash) Emerald else MaterialTheme.colors.surface).value
+                )
+            ) { Text("Smash") }
+
+            OutlinedButton(
+                onClick = { character.choices[pokemon.id] = Choice.Pass },
+                colors = ButtonDefaults.outlinedButtonColors(
+                    backgroundColor = animateColorAsState(if (choice == Choice.Pass) Alizarin else MaterialTheme.colors.surface).value,
+                )
+            ) { Text("Pass") }
+        }
+    }
+}
+
+val Emerald = Color(0xFF2ecc71)
+val Sunflower = Color(0xFFf1c40f)
+val Alizarin = Color(0xFFe74c3c)
+
+@Composable
+fun PokemonContent(pokemon: Pokemon) {
+    Text(pokemon.id)
+    Text(pokemon.name.capitalize(Locale.current))
+    Image(bitmap = loadNetworkImage(pokemon.image_hq), null)
+}
+
+class Character(val name: String) {
+
+    var choices = mutableStateMapOf<String, Choice>()
+
+    fun getChoice(id: String) = choices.getOrDefault(id, Choice.Undecided)
+}
+
+enum class Choice { Undecided, Smash, Pass }
+
+inline fun <reified T> String?.fromJson(): T? = try {
+    Gson().fromJson(this, object : TypeToken<T>() {}.type)
+} catch (e: Exception) {
+    e.printStackTrace()
+    null
+}
+
+fun main() = application {
+    MaterialTheme(darkColors()) {
+        Window(onCloseRequest = ::exitApplication) {
+            App()
+        }
+    }
+}
+
+data class Pokemon(val id: String, val name: String, val image_hq: String, val image: String, val types: Any?)
+
+fun loadNetworkImage(link: String): ImageBitmap {
+    val url = URL(link)
+    val connection = url.openConnection() as HttpURLConnection
+    connection.connect()
+
+    val inputStream = connection.inputStream
+    val bufferedImage = ImageIO.read(inputStream)
+
+    val stream = ByteArrayOutputStream()
+    ImageIO.write(bufferedImage, "png", stream)
+    val byteArray = stream.toByteArray()
+
+    return org.jetbrains.skia.Image.makeFromEncoded(byteArray).toComposeImageBitmap()
+}
