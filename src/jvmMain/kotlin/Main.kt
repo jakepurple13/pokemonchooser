@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -18,10 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
@@ -39,7 +37,7 @@ import java.net.URL
 import java.nio.charset.Charset
 import javax.imageio.ImageIO
 
-@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 @Preview
 fun App(location: MutableState<Int>) {
@@ -158,14 +156,40 @@ fun App(location: MutableState<Int>) {
                     .weight(0.5f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                pokemon?.let { items(characters) { p -> Character(p, it) } }
+                pokemon?.let {
+                    items(characters) { p ->
+                        var removeCharacter by remember { mutableStateOf(false) }
+
+                        if (removeCharacter) {
+                            AlertDialog(
+                                onDismissRequest = { removeCharacter = false },
+                                title = { Text("Remove ${p.name}") },
+                                text = { Text("Are you sure you want to remove this character?") },
+                                confirmButton = { TextButton(onClick = { removeCharacter = characters.remove(p) }) { Text("Remove") } },
+                                dismissButton = { TextButton(onClick = { removeCharacter = false }) { Text("Cancel") } }
+                            )
+                        }
+
+                        CharacterContent(p, it) { removeCharacter = true }
+                    }
+                }
                 item {
                     var newName by remember { mutableStateOf("") }
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
                         singleLine = true,
-                        modifier = Modifier.padding(horizontal = 4.dp),
+                        modifier = Modifier
+                            .onPreviewKeyEvent {
+                                if (it.key == Key.Enter && it.type == KeyEventType.KeyDown) {
+                                    if (newName.isNotEmpty()) {
+                                        characters.add(Character(newName))
+                                        newName = ""
+                                    }
+                                    true
+                                } else false
+                            }
+                            .padding(horizontal = 4.dp),
                         label = { Text("Add Character") },
                         trailingIcon = {
                             IconButton(onClick = {
@@ -217,13 +241,16 @@ ${pokemons.joinToString("\n") { "${it.name},${character.joinToString(",") { c ->
 }
 
 @Composable
-fun Character(character: Character, pokemon: Pokemon) {
+fun CharacterContent(character: Character, pokemon: Pokemon, onRemove: () -> Unit) {
     Row(
         horizontalArrangement = Arrangement.SpaceEvenly,
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(character.name)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, null, tint = Alizarin) }
+            Text(character.name)
+        }
 
         val choice = character.choices.getOrDefault(pokemon.id, Choice.Undecided)
 
