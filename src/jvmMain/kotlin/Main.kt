@@ -165,7 +165,7 @@ fun App(location: MutableState<Int>) {
                                 onDismissRequest = { removeCharacter = false },
                                 title = { Text("Remove ${p.name}") },
                                 text = { Text("Are you sure you want to remove this character?") },
-                                confirmButton = { TextButton(onClick = { removeCharacter = characters.remove(p) }) { Text("Remove") } },
+                                confirmButton = { TextButton(onClick = { removeCharacter = !characters.remove(p) }) { Text("Remove") } },
                                 dismissButton = { TextButton(onClick = { removeCharacter = false }) { Text("Cancel") } }
                             )
                         }
