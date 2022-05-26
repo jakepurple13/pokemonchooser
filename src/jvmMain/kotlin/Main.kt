@@ -17,13 +17,12 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.AwtWindow
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.ByteArrayOutputStream
@@ -42,8 +41,6 @@ fun App(location: MutableState<Int>) {
     var filePicker by remember { mutableStateOf(false) }
     var writingDone by remember { mutableStateOf(false) }
 
-    val scope = rememberCoroutineScope()
-
     if (writing) {
         AlertDialog(
             onDismissRequest = {},
@@ -58,7 +55,7 @@ fun App(location: MutableState<Int>) {
             onDismissRequest = {},
             title = { Text("Writing To File") },
             text = { Text("Writing Done!") },
-            buttons = {}
+            confirmButton = { TextButton(onClick = { writingDone = false }) { Text("OK") } }
         )
     }
 
@@ -115,10 +112,6 @@ ${
                         file.writeText(f)
                         writing = false
                         writingDone = true
-                        scope.launch {
-                            delay(2000)
-                            writingDone = false
-                        }
                     }
                 ) { Text("Export Data to CSV") }
             }
@@ -174,18 +167,22 @@ fun Character(character: Character, pokemon: Pokemon) {
 
         val choice = character.choices.getOrDefault(pokemon.id, Choice.Undecided)
 
-        Row {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             OutlinedButton(
-                onClick = { character.choices[pokemon.id] = Choice.Smash },
+                onClick = { character.choices[pokemon.id] = if (character.choices[pokemon.id] == Choice.Smash) Choice.Undecided else Choice.Smash },
                 colors = ButtonDefaults.outlinedButtonColors(
-                    backgroundColor = animateColorAsState(if (choice == Choice.Smash) Emerald else MaterialTheme.colors.surface).value
+                    backgroundColor = animateColorAsState(if (choice == Choice.Smash) Emerald else MaterialTheme.colors.surface).value,
+                    contentColor = animateColorAsState(if (choice == Choice.Smash) Color(0xFF003918) else MaterialTheme.colors.onSurface).value
                 )
             ) { Text("Smash") }
 
             OutlinedButton(
-                onClick = { character.choices[pokemon.id] = Choice.Pass },
+                onClick = { character.choices[pokemon.id] = if (character.choices[pokemon.id] == Choice.Pass) Choice.Undecided else Choice.Pass },
                 colors = ButtonDefaults.outlinedButtonColors(
                     backgroundColor = animateColorAsState(if (choice == Choice.Pass) Alizarin else MaterialTheme.colors.surface).value,
+                    contentColor = animateColorAsState(if (choice == Choice.Pass) Color(0xFF680000) else MaterialTheme.colors.onSurface).value
                 )
             ) { Text("Pass") }
         }
@@ -221,7 +218,7 @@ inline fun <reified T> String?.fromJson(): T? = try {
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() = application {
-    MaterialTheme(darkColors()) {
+    MaterialTheme(darkColors(primary = Color(0xff2196F3))) {
         val location = remember { mutableStateOf(0) }
         Window(
             title = "Pokemon Smash Or Pass",
