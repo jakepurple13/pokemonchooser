@@ -43,6 +43,9 @@ fun App(location: MutableState<Int>) {
     var writing by remember { mutableStateOf(false) }
     var filePicker by remember { mutableStateOf(false) }
     var writingDone by remember { mutableStateOf(false) }
+    var saveDialog by remember { mutableStateOf(false) }
+
+    var fileName by remember { mutableStateOf("") }
 
     if (writing) {
         AlertDialog(
@@ -60,9 +63,7 @@ fun App(location: MutableState<Int>) {
             text = {
                 Column {
                     Text("Writing Done! Saved pokemons.csv to Desktop!")
-                    val userHomeFolder = System.getProperty("user.home")
-                    val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
-                    Text(file.absolutePath)
+                    Text(fileName)
                 }
             },
             confirmButton = { TextButton(onClick = { writingDone = false }) { Text("OK") } }
@@ -84,9 +85,27 @@ fun App(location: MutableState<Int>) {
     val ginko = remember { Character("Ginko") }
 
     if (filePicker) {
-        FileDialog { file ->
+        FileDialog(
+            FileDialogMode.Load,
+            block = { setFilenameFilter { _, name -> name.endsWith(".csv") } }
+        ) { file ->
             filePicker = false
             file?.let { readFile(File(it), alex, amun, andy, era, ginko) }
+        }
+    }
+
+    if (saveDialog) {
+        FileDialog(
+            FileDialogMode.Save,
+            block = { setFilenameFilter { _, name -> name.endsWith(".csv") } }
+        ) { file ->
+            saveDialog = false
+            writing = true
+            file?.let { writeToFile(File(it), pokemons, alex, amun, andy, era, ginko) }
+            fileName = file.orEmpty()
+            println(file)
+            writing = false
+            writingDone = true
         }
     }
 
@@ -98,14 +117,7 @@ fun App(location: MutableState<Int>) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Button(onClick = { filePicker = true }) { Text("Import CSV Data (Will Overwrite Current Data)") }
-                    Button(
-                        onClick = {
-                            writing = true
-                            writeToFile(pokemons, alex, amun, andy, era, ginko)
-                            writing = false
-                            writingDone = true
-                        }
-                    ) { Text("Export Data to CSV") }
+                    Button(onClick = { saveDialog = true }) { Text("Export Data to CSV") }
                 }
             }
         },
@@ -157,13 +169,11 @@ fun readFile(file: File, vararg character: Character) {
     }
 }
 
-fun writeToFile(pokemons: Array<out Pokemon>, vararg character: Character) {
+fun writeToFile(file: File, pokemons: Array<out Pokemon>, vararg character: Character) {
     val f = """
 ,${character.joinToString(",") { it.name }}
 ${pokemons.joinToString("\n") { "${it.name},${character.joinToString(",") { c -> "${c.getChoice(it.id)}" }}" }}
                     """.trimIndent()
-    val userHomeFolder = System.getProperty("user.home")
-    val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
     if (!file.exists()) file.createNewFile()
     file.writeText(f)
     println(f)
@@ -284,22 +294,24 @@ fun loadNetworkImage(link: String): ImageBitmap {
     return org.jetbrains.skia.Image.makeFromEncoded(byteArray).toComposeImageBitmap()
 }
 
+enum class FileDialogMode(internal val id: Int) { Load(FileDialog.LOAD), Save(FileDialog.SAVE) }
+
 @Composable
 private fun FileDialog(
+    mode: FileDialogMode,
     parent: Frame? = null,
+    block: FileDialog.() -> Unit = {},
     onCloseRequest: (result: String?) -> Unit
 ) = AwtWindow(
     create = {
-        object : FileDialog(parent, "Choose a file", LOAD) {
+        object : FileDialog(parent, "Choose a file", mode.id) {
             override fun setVisible(value: Boolean) {
                 super.setVisible(value)
                 if (value) {
                     onCloseRequest(directory + File.separator + file)
                 }
             }
-        }.apply {
-            setFilenameFilter { _, name -> name.endsWith(".csv") }
-        }
+        }.apply(block)
     },
     dispose = FileDialog::dispose
 )
