@@ -17,6 +17,8 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.ByteArrayOutputStream
@@ -33,12 +35,24 @@ fun App() {
 
     var writing by remember { mutableStateOf(false) }
     var filePicker by remember { mutableStateOf(false) }
+    var writingDone by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
 
     if (writing) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Writing To File") },
             text = { CircularProgressIndicator() },
+            buttons = {}
+        )
+    }
+
+    if(writingDone) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Writing To File") },
+            text = { Text("Writing Done!") },
             buttons = {}
         )
     }
@@ -95,6 +109,11 @@ ${
                         if (!file.exists()) file.createNewFile()
                         file.writeText(f)
                         writing = false
+                        writingDone = true
+                        scope.launch {
+                            delay(2000)
+                            writingDone = false
+                        }
                     }
                 ) { Text("Export Data to CSV") }
             }
