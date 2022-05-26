@@ -97,7 +97,10 @@ fun App(location: MutableState<Int>) {
     if (saveDialog) {
         FileDialog(
             FileDialogMode.Save,
-            block = { setFilenameFilter { _, name -> name.endsWith(".csv") } }
+            block = {
+                setFilenameFilter { _, name -> name.endsWith(".csv") }
+                file = "pokemons.csv"
+            }
         ) { file ->
             val newFile = file?.let { f -> if (f.endsWith(".csv")) f else "$f.csv" }
             saveDialog = false
