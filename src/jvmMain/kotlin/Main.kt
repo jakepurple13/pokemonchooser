@@ -6,8 +6,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -78,11 +82,7 @@ fun App(location: MutableState<Int>) {
 
     val pokemon = pokemons.getOrNull(location.value)
 
-    val alex = remember { Character("Alex") }
-    val amun = remember { Character("Amun") }
-    val andy = remember { Character("Andy") }
-    val era = remember { Character("Era") }
-    val ginko = remember { Character("Ginko") }
+    val characters = remember { mutableStateListOf<Character>() }
 
     if (filePicker) {
         FileDialog(
@@ -90,7 +90,7 @@ fun App(location: MutableState<Int>) {
             block = { setFilenameFilter { _, name -> name.endsWith(".csv") } }
         ) { file ->
             filePicker = false
-            file?.let { readFile(File(it), alex, amun, andy, era, ginko) }
+            file?.let { readFile(File(it), characters) }
         }
     }
 
@@ -105,7 +105,7 @@ fun App(location: MutableState<Int>) {
             val newFile = file?.let { f -> if (f.endsWith(".csv")) f else "$f.csv" }
             saveDialog = false
             writing = true
-            newFile?.let { writeToFile(File(it), pokemons, alex, amun, andy, era, ginko) }
+            newFile?.let { writeToFile(File(it), pokemons, *characters.toTypedArray()) }
             fileName = newFile.orEmpty()
             println(newFile)
             writing = false
@@ -153,18 +153,37 @@ fun App(location: MutableState<Int>) {
         ) {
             pokemon?.let {
                 stickyHeader { PokemonContent(it, pokemons.size) }
-                item { Characters(it, alex, amun, andy, era, ginko) }
+                items(characters) { p -> Character(p, it) }
+                item {
+                    var newName by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        singleLine = true,
+                        label = { Text("Add Character") },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                if (newName.isNotEmpty()) {
+                                    characters.add(Character(newName))
+                                    newName = ""
+                                }
+                            }) { Icon(Icons.Default.AddCircle, null) }
+                        }
+                    )
+                }
             }
         }
     }
 }
 
 // read in csv file and populate characters with choices
-fun readFile(file: File, vararg character: Character) {
+fun readFile(file: File, character: SnapshotStateList<Character>) {
+    character.clear()
     val lines = file.readLines()
     val chars = lines[0].split(",").drop(1)
-    val choices = lines.drop(1).map { it.split(",").drop(1) }
-    choices.forEachIndexed { index, strings ->
+    val choices1 = lines.drop(1).map { it.split(",").drop(1) }
+    chars.forEach { character.add(Character(it)) }
+    choices1.forEachIndexed { index, strings ->
         chars.forEachIndexed { indexC, _ ->
             character[indexC].also { c ->
                 c.choices[(index + 1).toString().padStart(3, '0')] = Choice.valueOf(strings[indexC])
@@ -181,11 +200,6 @@ ${pokemons.joinToString("\n") { "${it.name},${character.joinToString(",") { c ->
     if (!file.exists()) file.createNewFile()
     file.writeText(f)
     println(f)
-}
-
-@Composable
-fun Characters(pokemon: Pokemon, vararg characters: Character) {
-    characters.forEach { Character(it, pokemon) }
 }
 
 @Composable
