@@ -101,22 +101,7 @@ fun App(location: MutableState<Int>) {
                     Button(
                         onClick = {
                             writing = true
-                            val f = """
-,${alex.name},${amun.name},${andy.name},${era.name},${ginko.name}
-${
-                                pokemons.joinToString("\n") {
-                                    "${it.name},${alex.getChoice(it.id)},${amun.getChoice(it.id)},${andy.getChoice(it.id)},${era.getChoice(it.id)},${
-                                        ginko.getChoice(
-                                            it.id
-                                        )
-                                    }"
-                                }
-                            }
-                    """.trimIndent()
-                            val userHomeFolder = System.getProperty("user.home")
-                            val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
-                            if (!file.exists()) file.createNewFile()
-                            file.writeText(f)
+                            writeToFile(pokemons, alex, amun, andy, era, ginko)
                             writing = false
                             writingDone = true
                         }
@@ -170,6 +155,18 @@ fun readFile(file: File, vararg character: Character) {
             }
         }
     }
+}
+
+fun writeToFile(pokemons: Array<out Pokemon>, vararg character: Character) {
+    val f = """
+,${character.joinToString(",") { it.name }}
+${pokemons.joinToString("\n") { "${it.name},${character.joinToString(",") { c -> "${c.getChoice(it.id)}" }}" }}
+                    """.trimIndent()
+    val userHomeFolder = System.getProperty("user.home")
+    val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
+    if (!file.exists()) file.createNewFile()
+    file.writeText(f)
+    println(f)
 }
 
 @Composable
