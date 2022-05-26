@@ -68,8 +68,6 @@ fun App(location: MutableState<Int>) {
             .fromJson<Array<Pokemon>>().orEmpty()
     }
 
-    //var location by remember { mutableStateOf(0) }
-
     val pokemon = pokemons.getOrNull(location.value)
 
     val alex = remember { Character("Alex") }
