@@ -57,7 +57,14 @@ fun App(location: MutableState<Int>) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Writing To File") },
-            text = { Text("Writing Done!") },
+            text = {
+                Column {
+                    Text("Writing Done! Saved pokemons.csv to Desktop!")
+                    val userHomeFolder = System.getProperty("user.home")
+                    val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
+                    Text(file.absolutePath)
+                }
+            },
             confirmButton = { TextButton(onClick = { writingDone = false }) { Text("OK") } }
         )
     }
