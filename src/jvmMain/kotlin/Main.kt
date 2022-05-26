@@ -179,10 +179,11 @@ fun App(location: MutableState<Int>) {
                         value = newName,
                         onValueChange = { newName = it },
                         singleLine = true,
+                        isError = characters.any { newName == it.name },
                         modifier = Modifier
                             .onPreviewKeyEvent {
                                 if (it.key == Key.Enter && it.type == KeyEventType.KeyDown) {
-                                    if (newName.isNotEmpty()) {
+                                    if (newName.isNotEmpty() && characters.none { c -> newName == c.name }) {
                                         characters.add(Character(newName))
                                         newName = ""
                                     }
@@ -193,7 +194,7 @@ fun App(location: MutableState<Int>) {
                         label = { Text("Add Character") },
                         trailingIcon = {
                             IconButton(onClick = {
-                                if (newName.isNotEmpty()) {
+                                if (newName.isNotEmpty() && characters.none { newName == it.name }) {
                                     characters.add(Character(newName))
                                     newName = ""
                                 }
