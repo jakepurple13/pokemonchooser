@@ -6,10 +6,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.window.AwtWindow
@@ -31,7 +36,7 @@ import javax.imageio.ImageIO
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 @Preview
-fun App() {
+fun App(location: MutableState<Int>) {
 
     var writing by remember { mutableStateOf(false) }
     var filePicker by remember { mutableStateOf(false) }
@@ -48,7 +53,7 @@ fun App() {
         )
     }
 
-    if(writingDone) {
+    if (writingDone) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Writing To File") },
@@ -63,9 +68,9 @@ fun App() {
             .fromJson<Array<Pokemon>>().orEmpty()
     }
 
-    var location by remember { mutableStateOf(0) }
+    //var location by remember { mutableStateOf(0) }
 
-    val pokemon = pokemons.getOrNull(location)
+    val pokemon = pokemons.getOrNull(location.value)
 
     val alex = remember { Character("Alex") }
     val amun = remember { Character("Amun") }
@@ -73,7 +78,7 @@ fun App() {
     val era = remember { Character("Era") }
     val ginko = remember { Character("Ginko") }
 
-    if(filePicker) {
+    if (filePicker) {
         FileDialog { file ->
             filePicker = false
             file?.let { readFile(File(it), alex, amun, andy, era, ginko) }
@@ -117,15 +122,23 @@ ${
                     }
                 ) { Text("Export Data to CSV") }
             }
-            pokemon?.let { PokemonContent(it) }
-            pokemon?.let { Characters(it, alex, amun, andy, era, ginko) }
+            pokemon?.let {
+                PokemonContent(it, pokemons.size)
+                Characters(it, alex, amun, andy, era, ginko)
+            }
+
+            Slider(
+                value = location.value.toFloat(),
+                onValueChange = { location.value = it.toInt() },
+                valueRange = 0f..pokemons.size.toFloat()
+            )
 
             Row(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Button(onClick = { location-- }) { Text("Previous") }
-                Button(onClick = { location++ }) { Text("Next") }
+                Button(onClick = { location.value-- }) { Text("Previous") }
+                Button(onClick = { location.value++ }) { Text("Next") }
             }
         }
     }
@@ -184,8 +197,8 @@ val Sunflower = Color(0xFFf1c40f)
 val Alizarin = Color(0xFFe74c3c)
 
 @Composable
-fun PokemonContent(pokemon: Pokemon) {
-    Text(pokemon.id)
+fun PokemonContent(pokemon: Pokemon, size: Int) {
+    Text(pokemon.id + "/$size")
     Text(pokemon.name.capitalize(Locale.current))
     Image(bitmap = loadNetworkImage(pokemon.image_hq), null)
 }
@@ -206,11 +219,29 @@ inline fun <reified T> String?.fromJson(): T? = try {
     null
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 fun main() = application {
     MaterialTheme(darkColors()) {
-        Window(title = "Pokemon Smash Or Pass", onCloseRequest = ::exitApplication) {
-            App()
-        }
+        val location = remember { mutableStateOf(0) }
+        Window(
+            title = "Pokemon Smash Or Pass",
+            onCloseRequest = ::exitApplication,
+            onPreviewKeyEvent = {
+                if (it.type == KeyEventType.KeyDown) {
+                    when (it.key) {
+                        Key.DirectionLeft -> {
+                            location.value--
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            location.value++
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }
+        ) { App(location) }
     }
 }
 
