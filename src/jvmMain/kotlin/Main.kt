@@ -99,11 +99,12 @@ fun App(location: MutableState<Int>) {
             FileDialogMode.Save,
             block = { setFilenameFilter { _, name -> name.endsWith(".csv") } }
         ) { file ->
+            val newFile = file?.let { f -> if (f.endsWith(".csv")) f else "$f.csv" }
             saveDialog = false
             writing = true
-            file?.let { writeToFile(File(it), pokemons, alex, amun, andy, era, ginko) }
-            fileName = file.orEmpty()
-            println(file)
+            newFile?.let { writeToFile(File(it), pokemons, alex, amun, andy, era, ginko) }
+            fileName = newFile.orEmpty()
+            println(newFile)
             writing = false
             writingDone = true
         }
