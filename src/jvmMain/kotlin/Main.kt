@@ -145,21 +145,27 @@ fun App(location: MutableState<Int>) {
             }
         }
     ) { padding ->
-        LazyColumn(
-            contentPadding = padding,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Row(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
         ) {
-            pokemon?.let {
-                stickyHeader { PokemonContent(it, pokemons.size) }
-                items(characters) { p -> Character(p, it) }
+            LazyColumn(
+                contentPadding = padding,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(0.5f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                pokemon?.let { items(characters) { p -> Character(p, it) } }
                 item {
                     var newName by remember { mutableStateOf("") }
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it },
                         singleLine = true,
+                        modifier = Modifier.padding(horizontal = 4.dp),
                         label = { Text("Add Character") },
                         trailingIcon = {
                             IconButton(onClick = {
@@ -172,7 +178,15 @@ fun App(location: MutableState<Int>) {
                     )
                 }
             }
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) { pokemon?.let { PokemonContent(it, pokemons.size) } }
         }
+
     }
 }
 
