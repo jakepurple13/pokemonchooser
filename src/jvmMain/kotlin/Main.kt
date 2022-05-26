@@ -4,9 +4,6 @@ import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,10 +12,13 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.window.AwtWindow
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.awt.FileDialog
+import java.awt.Frame
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.HttpURLConnection
@@ -32,8 +32,9 @@ import javax.imageio.ImageIO
 fun App() {
 
     var writing by remember { mutableStateOf(false) }
+    var filePicker by remember { mutableStateOf(false) }
 
-    if(writing) {
+    if (writing) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Writing To File") },
@@ -58,24 +59,45 @@ fun App() {
     val era = remember { Character("Era") }
     val ginko = remember { Character("Ginko") }
 
+    if(filePicker) {
+        FileDialog { file ->
+            filePicker = false
+            file?.let { readFile(File(it), alex, amun, andy, era, ginko) }
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxSize()
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Button(
-                onClick = {
-                    writing = true
-                    val f = """
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Button(onClick = { filePicker = true }) { Text("Import CSV Data (Will Overwrite Current Data)") }
+                Button(
+                    onClick = {
+                        writing = true
+                        val f = """
 ,${alex.name},${amun.name},${andy.name},${era.name},${ginko.name}
-${pokemons.joinToString("\n") { "${it.name},${alex.getChoice(it.id)},${amun.getChoice(it.id)},${andy.getChoice(it.id)},${era.getChoice(it.id)},${ginko.getChoice(it.id)}" }}
+${
+                            pokemons.joinToString("\n") {
+                                "${it.name},${alex.getChoice(it.id)},${amun.getChoice(it.id)},${andy.getChoice(it.id)},${era.getChoice(it.id)},${
+                                    ginko.getChoice(
+                                        it.id
+                                    )
+                                }"
+                            }
+                        }
                     """.trimIndent()
-                    val userHomeFolder = System.getProperty("user.home")
-                    val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
-                    if(!file.exists()) file.createNewFile()
-                    file.writeText(f)
-                    writing = false
-                }
-            ) { Text("Export Data to CSV") }
+                        val userHomeFolder = System.getProperty("user.home")
+                        val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
+                        if (!file.exists()) file.createNewFile()
+                        file.writeText(f)
+                        writing = false
+                    }
+                ) { Text("Export Data to CSV") }
+            }
             pokemon?.let { PokemonContent(it) }
             pokemon?.let { Characters(it, alex, amun, andy, era, ginko) }
 
@@ -85,6 +107,20 @@ ${pokemons.joinToString("\n") { "${it.name},${alex.getChoice(it.id)},${amun.getC
             ) {
                 Button(onClick = { location-- }) { Text("Previous") }
                 Button(onClick = { location++ }) { Text("Next") }
+            }
+        }
+    }
+}
+
+// read in csv file and populate characters with choices
+fun readFile(file: File, vararg character: Character) {
+    val lines = file.readLines()
+    val chars = lines[0].split(",").drop(1)
+    val choices = lines.drop(1).map { it.split(",").drop(1) }
+    choices.forEachIndexed { index, strings ->
+        chars.forEachIndexed { indexC, _ ->
+            character[indexC].also { c ->
+                c.choices[(index + 1).toString().padStart(3, '0')] = Choice.valueOf(strings[indexC])
             }
         }
     }
@@ -153,7 +189,7 @@ inline fun <reified T> String?.fromJson(): T? = try {
 
 fun main() = application {
     MaterialTheme(darkColors()) {
-        Window(onCloseRequest = ::exitApplication) {
+        Window(title = "Pokemon Smash Or Pass", onCloseRequest = ::exitApplication) {
             App()
         }
     }
@@ -175,3 +211,23 @@ fun loadNetworkImage(link: String): ImageBitmap {
 
     return org.jetbrains.skia.Image.makeFromEncoded(byteArray).toComposeImageBitmap()
 }
+
+@Composable
+private fun FileDialog(
+    parent: Frame? = null,
+    onCloseRequest: (result: String?) -> Unit
+) = AwtWindow(
+    create = {
+        object : FileDialog(parent, "Choose a file", LOAD) {
+            override fun setVisible(value: Boolean) {
+                super.setVisible(value)
+                if (value) {
+                    onCloseRequest(directory + File.separator + file)
+                }
+            }
+        }.apply {
+            setFilenameFilter { _, name -> name.endsWith(".csv") }
+        }
+    },
+    dispose = FileDialog::dispose
+)
