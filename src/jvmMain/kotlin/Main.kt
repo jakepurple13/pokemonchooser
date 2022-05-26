@@ -1,8 +1,11 @@
 // Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,7 +35,7 @@ import java.net.URL
 import java.nio.charset.Charset
 import javax.imageio.ImageIO
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
 @Composable
 @Preview
 fun App(location: MutableState<Int>) {
@@ -82,56 +85,69 @@ fun App(location: MutableState<Int>) {
         }
     }
 
-    Card(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Button(onClick = { filePicker = true }) { Text("Import CSV Data (Will Overwrite Current Data)") }
-                Button(
-                    onClick = {
-                        writing = true
-                        val f = """
+    Scaffold(
+        topBar = {
+            TopAppBar {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(onClick = { filePicker = true }) { Text("Import CSV Data (Will Overwrite Current Data)") }
+                    Button(
+                        onClick = {
+                            writing = true
+                            val f = """
 ,${alex.name},${amun.name},${andy.name},${era.name},${ginko.name}
 ${
-                            pokemons.joinToString("\n") {
-                                "${it.name},${alex.getChoice(it.id)},${amun.getChoice(it.id)},${andy.getChoice(it.id)},${era.getChoice(it.id)},${
-                                    ginko.getChoice(
-                                        it.id
-                                    )
-                                }"
+                                pokemons.joinToString("\n") {
+                                    "${it.name},${alex.getChoice(it.id)},${amun.getChoice(it.id)},${andy.getChoice(it.id)},${era.getChoice(it.id)},${
+                                        ginko.getChoice(
+                                            it.id
+                                        )
+                                    }"
+                                }
                             }
-                        }
                     """.trimIndent()
-                        val userHomeFolder = System.getProperty("user.home")
-                        val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
-                        if (!file.exists()) file.createNewFile()
-                        file.writeText(f)
-                        writing = false
-                        writingDone = true
+                            val userHomeFolder = System.getProperty("user.home")
+                            val file = File("$userHomeFolder${File.separator}Desktop", "pokemons.csv")
+                            if (!file.exists()) file.createNewFile()
+                            file.writeText(f)
+                            writing = false
+                            writingDone = true
+                        }
+                    ) { Text("Export Data to CSV") }
+                }
+            }
+        },
+        bottomBar = {
+            Column {
+                Slider(
+                    value = location.value.toFloat(),
+                    onValueChange = { location.value = it.toInt() },
+                    valueRange = 0f..pokemons.size.toFloat(),
+                    modifier = Modifier.background(MaterialTheme.colors.surface)
+                )
+                BottomAppBar {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(onClick = { location.value-- }) { Text("Previous") }
+                        Button(onClick = { location.value++ }) { Text("Next") }
                     }
-                ) { Text("Export Data to CSV") }
+                }
             }
+        }
+    ) { padding ->
+        LazyColumn(
+            contentPadding = padding,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             pokemon?.let {
-                PokemonContent(it, pokemons.size)
-                Characters(it, alex, amun, andy, era, ginko)
-            }
-
-            Slider(
-                value = location.value.toFloat(),
-                onValueChange = { location.value = it.toInt() },
-                valueRange = 0f..pokemons.size.toFloat()
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Button(onClick = { location.value-- }) { Text("Previous") }
-                Button(onClick = { location.value++ }) { Text("Next") }
+                stickyHeader { PokemonContent(it, pokemons.size) }
+                item { Characters(it, alex, amun, andy, era, ginko) }
             }
         }
     }
@@ -195,9 +211,16 @@ val Alizarin = Color(0xFFe74c3c)
 
 @Composable
 fun PokemonContent(pokemon: Pokemon, size: Int) {
-    Text(pokemon.id + "/$size")
-    Text(pokemon.name.capitalize(Locale.current))
-    Image(bitmap = loadNetworkImage(pokemon.image_hq), null)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colors.surface),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(pokemon.id + "/$size")
+        Text(pokemon.name.capitalize(Locale.current))
+        Image(bitmap = loadNetworkImage(pokemon.image_hq), null)
+    }
 }
 
 class Character(val name: String) {
