@@ -1,23 +1,19 @@
 // Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.TooltipArea
-import androidx.compose.foundation.background
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -31,10 +27,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.AwtWindow
-import androidx.compose.ui.window.FrameWindowScope
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
+import androidx.compose.ui.window.*
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
@@ -84,10 +77,12 @@ fun FrameWindowScope.App(location: MutableState<Int>) {
         )
     }
 
-    val pokemons = remember {
-        Pokemon::class.java.getResourceAsStream("pokemons.json")?.readAllBytes()
-            ?.toString(Charset.defaultCharset())
-            .fromJson<Array<Pokemon>>().orEmpty()
+    var pokemons by remember {
+        mutableStateOf(
+            Pokemon::class.java.getResourceAsStream("pokemons.json")?.readAllBytes()
+                ?.toString(Charset.defaultCharset())
+                .fromJson<Array<SmashPass>>().orEmpty()
+        )
     }
 
     val pokemon = pokemons.getOrNull(location.value)
@@ -146,6 +141,10 @@ fun FrameWindowScope.App(location: MutableState<Int>) {
                             draggedFileName.firstOrNull()?.toString()?.let {
                                 if (it.endsWith(".csv")) {
                                     readFile(File(it), characters)
+                                } else if (it.endsWith(".sop")) {
+                                    pokemons = File(it).readText()
+                                        .fromJson<Array<SmashPass>>()
+                                        .orEmpty()
                                 }
                             }
                         }
@@ -333,7 +332,7 @@ fun readFile(file: File, character: SnapshotStateList<Character>) {
     }
 }
 
-fun writeToFile(file: File, pokemons: Array<out Pokemon>, vararg character: Character) {
+fun writeToFile(file: File, pokemons: Array<out SmashPass>, vararg character: Character) {
     val f = """
 ,${character.joinToString(",") { it.name }}
 ${pokemons.joinToString("\n") { "${it.name},${character.joinToString(",") { c -> "${c.getChoice(it.id)}" }}" }}
@@ -344,7 +343,7 @@ ${pokemons.joinToString("\n") { "${it.name},${character.joinToString(",") { c ->
 }
 
 @Composable
-fun CharacterContent(character: Character, pokemon: Pokemon, onRemove: () -> Unit) {
+fun CharacterContent(character: Character, pokemon: SmashPass, onRemove: () -> Unit) {
     Row(
         horizontalArrangement = Arrangement.SpaceEvenly,
         modifier = Modifier.fillMaxWidth(),
@@ -384,7 +383,7 @@ val Sunflower = Color(0xFFf1c40f)
 val Alizarin = Color(0xFFe74c3c)
 
 @Composable
-fun PokemonContent(pokemon: Pokemon, size: Int) {
+fun PokemonContent(pokemon: SmashPass, size: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -393,7 +392,15 @@ fun PokemonContent(pokemon: Pokemon, size: Int) {
     ) {
         Text(pokemon.id + "/$size")
         Text(pokemon.name.capitalize(Locale.current))
-        Image(bitmap = loadNetworkImage(pokemon.image_hq), null)
+        val image = remember(pokemon) {
+            try {
+                loadNetworkImage(pokemon.image)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        image?.let { Image(bitmap = it, null) }
     }
 }
 
@@ -435,7 +442,21 @@ fun main() = application {
                     }
                 } else false
             }
-        ) { App(location) }
+        ) {
+            var showListCreator by remember { mutableStateOf(false) }
+            MenuBar {
+                Menu("New") {
+                    Item(
+                        "Custom List",
+                        onClick = { showListCreator = true }
+                    )
+                }
+            }
+            if (showListCreator) {
+                SequenceCreator { showListCreator = false }
+            }
+            App(location)
+        }
     }
 }
 
@@ -498,4 +519,226 @@ fun CustomTooltip(
             ) { tooltip() }
         }
     ) { content() }
+}
+
+data class SmashOrPassVictim(val name: String, val image: String)
+data class SmashPass(val id: String, val name: String, val image: String)
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun SequenceCreator(onCloseRequest: () -> Unit) = Window(
+    title = "Sequence Creator",
+    onCloseRequest = onCloseRequest,
+) {
+
+    val list = remember { mutableStateListOf<SmashOrPassVictim>() }
+    var location by remember { mutableStateOf(0) }
+    var name by remember(location) { mutableStateOf(list.getOrNull(location)?.name.orEmpty()) }
+    var imageUrl by remember(location) { mutableStateOf(list.getOrNull(location)?.image.orEmpty()) }
+
+    var dragState by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        window.dropTarget = DropTarget().apply {
+            addDropTargetListener(object : DropTargetAdapter() {
+                override fun dragEnter(dtde: DropTargetDragEvent?) {
+                    super.dragEnter(dtde)
+                    dragState = true
+                }
+
+                override fun drop(event: DropTargetDropEvent) {
+                    event.acceptDrop(DnDConstants.ACTION_COPY)
+                    val draggedFileName = event.transferable.getTransferData(DataFlavor.javaFileListFlavor)
+                    println(draggedFileName)
+                    when (draggedFileName) {
+                        is List<*> -> {
+                            draggedFileName.firstOrNull()?.toString()?.let {
+                                if (it.endsWith(".sop")) {
+                                    list.clear()
+                                    list.addAll(
+                                        File(it)
+                                            .readText()
+                                            .fromJson<List<SmashPass>>()
+                                            .orEmpty()
+                                            .map { SmashOrPassVictim(it.name, it.image) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    event.dropComplete(true)
+                    dragState = false
+                }
+
+                override fun dragExit(dte: DropTargetEvent?) {
+                    super.dragExit(dte)
+                    dragState = false
+                }
+            })
+        }
+    }
+
+    var saveDialog by remember { mutableStateOf(false) }
+
+    if (saveDialog) {
+        FileDialog(
+            FileDialogMode.Save,
+            block = {
+                setFilenameFilter { _, name -> name.endsWith(".sop") }
+                file = "smashorpass.sop"
+            }
+        ) { path ->
+            val newFile = path?.let { f -> if (f.endsWith(".sop")) f else "$f.sop" }
+            //writing = true
+            newFile
+                ?.let { File(it) }
+                ?.let { file ->
+                    if (!file.exists()) file.createNewFile()
+                    val mappedList = list.mapIndexed { index, smashOrPassVictim ->
+                        SmashPass((index + 1).toString().padStart(3, '0'), smashOrPassVictim.name, smashOrPassVictim.image)
+                    }
+                    file.writeText(Gson().toJson(mappedList))
+                    println(mappedList)
+                }
+            saveDialog = false
+            println(newFile)
+            onCloseRequest()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Create a List!") },
+                actions = {
+                    Button(onClick = { saveDialog = true }) {
+                        Icon(Icons.Default.Done, null)
+                        Text("Finished")
+                    }
+                }
+            )
+        },
+        bottomBar = {
+            BottomAppBar {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(onClick = { if (location > 0) location-- }) { Text("Previous") }
+
+                    Button(onClick = {
+                        if (location < list.size) list[location] = SmashOrPassVictim(name, imageUrl)
+                        else list.add(SmashOrPassVictim(name, imageUrl))
+                        name = ""
+                        imageUrl = ""
+                        location = list.size
+                    }) {
+                        Icon(Icons.Default.Add, null)
+                        Text(if (location < list.size) "Change" else "Add")
+                    }
+
+                    Button(onClick = { if (location < list.size) location++ }) { Text("Next") }
+                }
+            }
+        }
+    ) { p ->
+        Box(
+            modifier = Modifier
+                .padding(p)
+                .fillMaxSize()
+        ) {
+            Row(modifier = Modifier.matchParentSize()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = name,
+                        label = { Text("Name") },
+                        onValueChange = { name = it },
+                        singleLine = true,
+                    )
+                    Text(
+                        "Victims: ${list.size}",
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    LazyColumn(
+                        modifier = Modifier.padding(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        itemsIndexed(list) { index, it ->
+
+                            var deleteDialog by remember { mutableStateOf(false) }
+
+                            if (deleteDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { deleteDialog = false },
+                                    text = { Text("Are you sure you want to delete this item?") },
+                                    title = { Text("Delete ${it.name}") },
+                                    confirmButton = {
+                                        Button(
+                                            onClick = {
+                                                list.remove(it)
+                                                deleteDialog = false
+                                            }
+                                        ) { Text("Delete") }
+                                    },
+                                    dismissButton = { Button(onClick = { deleteDialog = false }) { Text("Cancel") } }
+                                )
+                            }
+
+                            Card(
+                                onClick = { location = index },
+                                border = BorderStroke(
+                                    width = animateDpAsState(if (index == location) 3.dp else 0.dp).value,
+                                    color = animateColorAsState(if (index == location) Emerald else Color.Transparent).value
+                                )
+                            ) {
+                                ListItem(
+                                    text = { Text(it.name) },
+                                    icon = { IconButton(onClick = { deleteDialog = true }) { Icon(Icons.Default.Delete, null) } }
+                                )
+                            }
+                        }
+
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+
+                    OutlinedTextField(
+                        value = imageUrl,
+                        label = { Text("Image Url") },
+                        onValueChange = { imageUrl = it }
+                    )
+
+                    val image = remember(imageUrl) {
+                        try {
+                            loadNetworkImage(imageUrl)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+
+                    image?.let { Image(bitmap = it, null) }
+
+                }
+
+            }
+
+            AnimatedVisibility(
+                dragState,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Card(modifier = Modifier.matchParentSize()) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("Drag-n-Drop to import")
+                        Text("Please note that this will overwrite the current data")
+                    }
+                }
+            }
+        }
+    }
 }

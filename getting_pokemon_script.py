@@ -30,8 +30,8 @@ while True:
         {
             "id": P_ID,
             "name": P_NAME,
-            "image_hq": f"https://assets.pokemon.com/assets/cms2/img/pokedex/full/{P_ID}.png",
-            "image": f"https://assets.pokemon.com/assets/cms2/img/pokedex/detail/{P_ID}.png",
+            "image": f"https://assets.pokemon.com/assets/cms2/img/pokedex/full/{P_ID}.png",
+            "image_sprite": f"https://assets.pokemon.com/assets/cms2/img/pokedex/detail/{P_ID}.png",
             "types": P_TYPES,
         }
     )
