@@ -1,5 +1,8 @@
 // Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -29,6 +32,7 @@ import androidx.compose.ui.text.capitalize
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.AwtWindow
+import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.google.gson.Gson
@@ -36,6 +40,8 @@ import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
+import java.awt.datatransfer.DataFlavor
+import java.awt.dnd.*
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.HttpURLConnection
@@ -46,7 +52,7 @@ import javax.imageio.ImageIO
 @OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 @Preview
-fun App(location: MutableState<Int>) {
+fun FrameWindowScope.App(location: MutableState<Int>) {
 
     var writing by remember { mutableStateOf(false) }
     var filePicker by remember { mutableStateOf(false) }
@@ -121,6 +127,41 @@ fun App(location: MutableState<Int>) {
     val scope = rememberCoroutineScope()
     val state = rememberScaffoldState()
 
+    var dragState by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        window.dropTarget = DropTarget().apply {
+            addDropTargetListener(object : DropTargetAdapter() {
+                override fun dragEnter(dtde: DropTargetDragEvent?) {
+                    super.dragEnter(dtde)
+                    dragState = true
+                }
+
+                override fun drop(event: DropTargetDropEvent) {
+                    event.acceptDrop(DnDConstants.ACTION_COPY)
+                    val draggedFileName = event.transferable.getTransferData(DataFlavor.javaFileListFlavor)
+                    println(draggedFileName)
+                    when (draggedFileName) {
+                        is List<*> -> {
+                            draggedFileName.firstOrNull()?.toString()?.let {
+                                if (it.endsWith(".csv")) {
+                                    readFile(File(it), characters)
+                                }
+                            }
+                        }
+                    }
+                    event.dropComplete(true)
+                    dragState = false
+                }
+
+                override fun dragExit(dte: DropTargetEvent?) {
+                    super.dragExit(dte)
+                    dragState = false
+                }
+            })
+        }
+    }
+
     Scaffold(
         scaffoldState = state,
         drawerContent = {
@@ -186,75 +227,93 @@ fun App(location: MutableState<Int>) {
             }
         }
     ) { padding ->
-        Row(
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
         ) {
-            LazyColumn(
-                contentPadding = padding,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .weight(0.5f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                pokemon?.let {
-                    items(characters) { p ->
-                        var removeCharacter by remember { mutableStateOf(false) }
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    contentPadding = padding,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(0.5f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    pokemon?.let {
+                        items(characters) { p ->
+                            var removeCharacter by remember { mutableStateOf(false) }
 
-                        if (removeCharacter) {
-                            AlertDialog(
-                                onDismissRequest = { removeCharacter = false },
-                                title = { Text("Remove ${p.name}") },
-                                text = { Text("Are you sure you want to remove this character?") },
-                                confirmButton = { TextButton(onClick = { removeCharacter = !characters.remove(p) }) { Text("Remove") } },
-                                dismissButton = { TextButton(onClick = { removeCharacter = false }) { Text("Cancel") } }
-                            )
+                            if (removeCharacter) {
+                                AlertDialog(
+                                    onDismissRequest = { removeCharacter = false },
+                                    title = { Text("Remove ${p.name}") },
+                                    text = { Text("Are you sure you want to remove this character?") },
+                                    confirmButton = { TextButton(onClick = { removeCharacter = !characters.remove(p) }) { Text("Remove") } },
+                                    dismissButton = { TextButton(onClick = { removeCharacter = false }) { Text("Cancel") } }
+                                )
+                            }
+
+                            CharacterContent(p, it) { removeCharacter = true }
                         }
-
-                        CharacterContent(p, it) { removeCharacter = true }
                     }
-                }
-                item {
-                    var newName by remember { mutableStateOf("") }
-                    OutlinedTextField(
-                        value = newName,
-                        onValueChange = { newName = it },
-                        singleLine = true,
-                        isError = characters.any { newName == it.name },
-                        modifier = Modifier
-                            .onPreviewKeyEvent {
-                                if (it.key == Key.Enter && it.type == KeyEventType.KeyDown) {
-                                    if (newName.isNotEmpty() && characters.none { c -> newName == c.name }) {
+                    item {
+                        var newName by remember { mutableStateOf("") }
+                        OutlinedTextField(
+                            value = newName,
+                            onValueChange = { newName = it },
+                            singleLine = true,
+                            isError = characters.any { newName == it.name },
+                            modifier = Modifier
+                                .onPreviewKeyEvent {
+                                    if (it.key == Key.Enter && it.type == KeyEventType.KeyDown) {
+                                        if (newName.isNotEmpty() && characters.none { c -> newName == c.name }) {
+                                            characters.add(Character(newName))
+                                            newName = ""
+                                        }
+                                        true
+                                    } else false
+                                }
+                                .padding(horizontal = 4.dp),
+                            label = { Text("Add Character") },
+                            trailingIcon = {
+                                IconButton(onClick = {
+                                    if (newName.isNotEmpty() && characters.none { newName == it.name }) {
                                         characters.add(Character(newName))
                                         newName = ""
                                     }
-                                    true
-                                } else false
+                                }) { Icon(Icons.Default.AddCircle, null) }
                             }
-                            .padding(horizontal = 4.dp),
-                        label = { Text("Add Character") },
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                if (newName.isNotEmpty() && characters.none { newName == it.name }) {
-                                    characters.add(Character(newName))
-                                    newName = ""
-                                }
-                            }) { Icon(Icons.Default.AddCircle, null) }
-                        }
-                    )
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) { pokemon?.let { PokemonContent(it, pokemons.size) } }
+            }
+
+            AnimatedVisibility(
+                dragState,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Card(modifier = Modifier.matchParentSize()) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("Drag-n-Drop to import")
+                        Text("Please note that this will overwrite the current data")
+                    }
                 }
             }
-            Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .weight(1f),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) { pokemon?.let { PokemonContent(it, pokemons.size) } }
         }
-
     }
 }
 
