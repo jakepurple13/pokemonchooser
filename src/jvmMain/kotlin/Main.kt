@@ -3,19 +3,24 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -28,6 +33,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.ByteArrayOutputStream
@@ -85,6 +91,7 @@ fun App(location: MutableState<Int>) {
     if (filePicker) {
         FileDialog(
             FileDialogMode.Load,
+            title = "Choose a file",
             block = { setFilenameFilter { _, name -> name.endsWith(".csv") } }
         ) { file ->
             filePicker = false
@@ -111,17 +118,53 @@ fun App(location: MutableState<Int>) {
         }
     }
 
+    val scope = rememberCoroutineScope()
+    val state = rememberScaffoldState()
+
     Scaffold(
-        topBar = {
-            TopAppBar {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxWidth()
+        scaffoldState = state,
+        drawerContent = {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Stats") },
+                        actions = { IconButton(onClick = { scope.launch { state.drawerState.close() } }) { Icon(Icons.Filled.Close, null) } }
+                    )
+                },
+            ) { p ->
+                LazyColumn(
+                    contentPadding = p,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Button(onClick = { filePicker = true }) { Text("Import CSV Data (Will Overwrite Current Data)") }
-                    Button(onClick = { saveDialog = true }) { Text("Export Data to CSV") }
+                    items(characters) { character ->
+                        Card {
+                            ListItem(
+                                modifier = Modifier.padding(4.dp),
+                                text = { Text(character.name) },
+                                secondaryText = {
+                                    Column {
+                                        Text("Smash: ${character.choices.filter { it.value == Choice.Smash }.count()}")
+                                        Text("Pass: ${character.choices.filter { it.value == Choice.Pass }.count()}")
+                                        Text("Undecided: ${character.choices.filter { it.value == Choice.Undecided }.count()}")
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
             }
+        },
+        topBar = {
+            TopAppBar(
+                navigationIcon = { IconButton(onClick = { scope.launch { state.drawerState.open() } }) { Icon(Icons.Default.Menu, null) } },
+                title = { Text("Pokemon") },
+                actions = {
+                    CustomTooltip(
+                        tooltip = { Box(Modifier.padding(10.dp)) { Text("Will Overwrite Current Data") } }
+                    ) { OutlinedButton(onClick = { filePicker = true }) { Text("Import CSV Data") } }
+                    OutlinedButton(onClick = { saveDialog = true }) { Text("Export Data to CSV") }
+                }
+            )
         },
         bottomBar = {
             Column {
@@ -359,12 +402,13 @@ enum class FileDialogMode(internal val id: Int) { Load(FileDialog.LOAD), Save(Fi
 @Composable
 private fun FileDialog(
     mode: FileDialogMode,
+    title: String = "Choose a file",
     parent: Frame? = null,
     block: FileDialog.() -> Unit = {},
     onCloseRequest: (result: String?) -> Unit
 ) = AwtWindow(
     create = {
-        object : FileDialog(parent, "Choose a file", mode.id) {
+        object : FileDialog(parent, title, mode.id) {
             override fun setVisible(value: Boolean) {
                 super.setVisible(value)
                 if (value) {
@@ -375,3 +419,24 @@ private fun FileDialog(
     },
     dispose = FileDialog::dispose
 )
+
+@ExperimentalFoundationApi
+@Composable
+fun CustomTooltip(
+    backgroundColor: Color = MaterialTheme.colors.surface,
+    contentColor: Color = contentColorFor(backgroundColor),
+    tooltip: @Composable () -> Unit,
+    content: @Composable () -> Unit
+) {
+    TooltipArea(
+        tooltip = {
+            // composable tooltip content
+            Surface(
+                modifier = Modifier.shadow(4.dp),
+                color = backgroundColor,
+                contentColor = contentColor,
+                shape = RoundedCornerShape(4.dp)
+            ) { tooltip() }
+        }
+    ) { content() }
+}
