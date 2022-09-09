@@ -49,7 +49,7 @@ compose.desktop {
 
                 signing {
                     sign.set(true)
-                    identity.set("John Doe")
+
                 }
 
                 notarization {
