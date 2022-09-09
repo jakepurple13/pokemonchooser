@@ -1,6 +1,5 @@
 import org.jetbrains.compose.compose
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("multiplatform")
@@ -42,5 +41,35 @@ compose.desktop {
             packageName = "pokemonchooser"
             packageVersion = "1.0.0"
         }
+    }
+}
+
+gradle.buildFinished {
+    val pkgTasks =
+        project.gradle.startParameter.taskNames.filter { it.startsWith("package", ignoreCase = true) }
+
+    val pkgFormat =
+        compose.desktop.application.nativeDistributions.targetFormats.firstOrNull { it.isCompatibleWithCurrentOS }
+    val nativePkg = buildDir.resolve("compose/binaries").findPkg(pkgFormat?.fileExt)
+    val jarPkg = buildDir.resolve("compose/jars").findPkg(".jar")
+    nativePkg.ghActionOutput("app_pkg")
+    jarPkg.ghActionOutput("uber_jar")
+}
+
+fun File.findPkg(format: String?) = when (format != null) {
+    true -> walk().firstOrNull { it.isFile && it.name.endsWith(format, ignoreCase = true) }
+    else -> null
+}
+
+fun File?.ghActionOutput(prefix: String) = this?.let {
+    when (System.getenv("GITHUB_ACTIONS").toBoolean()) {
+        true -> println(
+            """
+        ::set-output name=${prefix}_name::${it.name}
+        ::set-output name=${prefix}_path::${it.absolutePath}
+      """.trimIndent()
+        )
+
+        else -> println("$prefix: $this")
     }
 }
