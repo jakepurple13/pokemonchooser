@@ -41,6 +41,11 @@ compose.desktop {
             packageName = "pokemonchooser"
             packageVersion = "1.0.0"
 
+            windows {
+                dirChooser = true
+                console = true
+            }
+
             macOS {
                 setDockNameSameAsPackageName = true
                 bundleID = "${project.group}.${project.name}"
