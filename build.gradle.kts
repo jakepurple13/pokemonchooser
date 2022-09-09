@@ -47,6 +47,11 @@ compose.desktop {
 
                 packageBuildVersion = "1.0.0"
 
+                signing {
+                    sign.set(true)
+                    identity.set("John Doe")
+                }
+
                 notarization {
                     appleID.set("test.app@example.com")
                     password.set("@keychain:NOTARIZATION_PASSWORD")
