@@ -64,7 +64,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: adopt
-          java-version: 11
+          java-version: 18
 
       - name: Cache Gradle dependencies
         uses: actions/cache@v3.0.2
