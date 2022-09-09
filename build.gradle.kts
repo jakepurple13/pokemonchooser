@@ -63,9 +63,9 @@ gradle.buildFinished {
     val pkgFormat =
         compose.desktop.application.nativeDistributions.targetFormats.firstOrNull { it.isCompatibleWithCurrentOS }
     val nativePkg = buildDir.resolve("compose/binaries").findPkg(pkgFormat?.fileExt)
-    //val jarPkg = buildDir.resolve("compose/jars").findPkg(".jar")
+    val jarPkg = buildDir.resolve("compose/jars").findPkg(".jar")
     nativePkg.ghActionOutput("app_pkg")
-    //jarPkg.ghActionOutput("uber_jar")
+    jarPkg.ghActionOutput("uber_jar")
 }
 
 fun File.findPkg(format: String?) = when (format != null) {
