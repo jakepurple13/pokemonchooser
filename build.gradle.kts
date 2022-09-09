@@ -45,6 +45,8 @@ compose.desktop {
                 setDockNameSameAsPackageName = true
                 bundleID = "${project.group}.${project.name}"
 
+                packageBuildVersion = "1.0.0"
+
                 notarization {
                     appleID.set("test.app@example.com")
                     password.set("@keychain:NOTARIZATION_PASSWORD")
