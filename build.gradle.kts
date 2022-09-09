@@ -37,9 +37,19 @@ compose.desktop {
     application {
         mainClass = "MainKt"
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe, TargetFormat.AppImage)
             packageName = "pokemonchooser"
             packageVersion = "1.0.0"
+
+            macOS {
+                setDockNameSameAsPackageName = true
+                bundleID = "${project.group}.${project.name}"
+
+                notarization {
+                    appleID.set("test.app@example.com")
+                    password.set("@keychain:NOTARIZATION_PASSWORD")
+                }
+            }
         }
     }
 }
