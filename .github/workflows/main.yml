@@ -31,7 +31,7 @@ jobs:
   build:
     name: Build Package
     timeout-minutes: 15
-    continue-on-error: false
+    continue-on-error: true
     # if: github.event_name  == 'pull_request'
 
     runs-on: ${{ matrix.os }}
@@ -44,21 +44,6 @@ jobs:
     steps:
       - name: Check out the source code
         uses: actions/checkout@v3
-
-      #      - name: Download ${{ matrix.os }} OpenJDK ${{ matrix.jdk }}
-      #        id: download-jdk
-      #        uses: sormuras/download-jdk@v1
-      #        with:
-      #          feature: ${{ matrix.jdk }}
-      #
-      #      - name: Set up OpenJDK ${{ matrix.jdk }}
-      #        id: setup-java
-      #        uses: actions/setup-java@v3
-      #        if: always() && steps.download-jdk.outcome == 'success'
-      #        with:
-      #          distribution: jdkfile
-      #          java-version: ${{ env.JDK_VERSION }}
-      #          jdkFile: ${{ env.JDK_FILE }}
 
       - name: Setup JDK
         uses: actions/setup-java@v3
