@@ -73,14 +73,14 @@ jobs:
         id: gradle-build
         run: ./gradlew createDistributable package
 
-      - name: Uploading ${{ matrix.os }} uber jar
-        if: steps.gradle-build.outcome == 'success'
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ steps.gradle-build.outputs.uber_jar_name }}
-          path: |
-            ${{ steps.gradle-build.outputs.uber_jar_path }}
-          if-no-files-found: error
+      #      - name: Uploading ${{ matrix.os }} uber jar
+      #        if: steps.gradle-build.outcome == 'success'
+      #        uses: actions/upload-artifact@v3
+      #        with:
+      #          name: ${{ steps.gradle-build.outputs.uber_jar_name }}
+      #          path: |
+      #            ${{ steps.gradle-build.outputs.uber_jar_path }}
+      #          if-no-files-found: error
 
       - name: Uploading ${{ matrix.os }} native package
         if: steps.gradle-build.outcome == 'success'
