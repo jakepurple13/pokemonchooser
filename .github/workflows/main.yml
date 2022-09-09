@@ -45,20 +45,26 @@ jobs:
       - name: Check out the source code
         uses: actions/checkout@v3
 
-      - name: Download ${{ matrix.os }} OpenJDK ${{ matrix.jdk }}
-        id: download-jdk
-        uses: sormuras/download-jdk@v1
-        with:
-          feature: ${{ matrix.jdk }}
+      #      - name: Download ${{ matrix.os }} OpenJDK ${{ matrix.jdk }}
+      #        id: download-jdk
+      #        uses: sormuras/download-jdk@v1
+      #        with:
+      #          feature: ${{ matrix.jdk }}
+      #
+      #      - name: Set up OpenJDK ${{ matrix.jdk }}
+      #        id: setup-java
+      #        uses: actions/setup-java@v3
+      #        if: always() && steps.download-jdk.outcome == 'success'
+      #        with:
+      #          distribution: jdkfile
+      #          java-version: ${{ env.JDK_VERSION }}
+      #          jdkFile: ${{ env.JDK_FILE }}
 
-      - name: Set up OpenJDK ${{ matrix.jdk }}
-        id: setup-java
+      - name: Setup JDK
         uses: actions/setup-java@v3
-        if: always() && steps.download-jdk.outcome == 'success'
         with:
-          distribution: jdkfile
-          java-version: ${{ env.JDK_VERSION }}
-          jdkFile: ${{ env.JDK_FILE }}
+          distribution: adopt
+          java-version: 11
 
       - name: Cache Gradle dependencies
         uses: actions/cache@v3.0.2
